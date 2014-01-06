@@ -1,10 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
+import 'dart:async';
 
-Hiscores loadHiscores(File file) {
-  return new Hiscores.loadFromJson('{"capacity": 10, "scores": [{"name":"test1", "score":1}, {"name":"test2", "score":2}]}');
-}
 
 class PlayerScore {
   final String name;
@@ -21,11 +19,31 @@ class PlayerScore {
   }
 
   String toJson() {
-    return '{"name":"$name", "score":"$score"}';
+    return '{"name":"$name", "score":$score}';
   }
 }
 
 class Hiscores {
+
+  static File getHiscoresFile() {
+    var userHome = Platform.environment["HOME"];
+    if (userHome != null && userHome.length > 0) {
+      return new File("$userHome/hiscores.json");
+    } else {
+      throw new Exception("No home dir $userHome");
+    }
+  }
+
+  static Future<Hiscores> load() {
+    var hiscoresFile = getHiscoresFile();
+    return hiscoresFile.exists().then(
+        (fileExists) => fileExists ? Hiscores.loadFromFile(hiscoresFile) : new Hiscores());
+  }
+
+  static Future<Hiscores> loadFromFile(File hiscoresFile) {
+    return hiscoresFile.readAsString().then((jsonString) => new Hiscores.loadFromJson(jsonString));
+  }
+
   int capacity;
   final List<PlayerScore> scores = new List<PlayerScore>();
 
@@ -45,9 +63,9 @@ class Hiscores {
   String toJson() {
       var sb = new StringBuffer();
       sb.write("{");
-      sb.write('"capacity": "$capacity",[');
+      sb.write('"capacity": $capacity, "scores": [');
       scores.forEach((score) {
-        sb.write(score.toJson() + "\n");
+        sb.write(score.toJson());
         if (scores.last != score)
           sb.write(',');
       });
@@ -67,5 +85,13 @@ class Hiscores {
     }
     if (scores.length > capacity)
       scores.removeLast();
+    save();
+  }
+
+  void save() {
+    File hiscoresFile = getHiscoresFile();
+    IOSink sink = hiscoresFile.openWrite();
+    sink.write(toJson());
+    sink.close();
   }
 }
